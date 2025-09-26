@@ -1,0 +1,71 @@
+pipeline {
+    agent any
+
+    environment {
+        GCP_PROJECT        = 'di-gcp-351221'
+        GCP_REGION         = 'us-central'
+        GCP_KEY_FILE       = '/home/mrityunjaikumar_dwivedy/di-gcp-351221-5d28d91f767a.json'
+        NODE_VERSION       = '24.8.0'
+
+        # Pass variables to Terraform
+        TF_VAR_gcp_project          = 'di-gcp-351221'
+        TF_VAR_gcp_region           = 'us-central'
+        TF_VAR_gcp_credentials_file = '/home/mrityunjaikumar_dwivedy/di-gcp-351221-5d28d91f767a.json'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/CBN-Project-Deployment/CBN_TERRAFORM_Deploy.git'
+            }
+        }
+
+        stage('Install Node.js dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Build React App') {
+            steps {
+                sh 'CI=false npm run build'
+            }
+        }
+
+        stage('Package React Build') {
+            steps {
+                sh '''
+                    rm -f build.zip
+                    zip -r build.zip build/
+                '''
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh 'terraform init terraform/'
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh 'terraform plan -out=tfplan terraform/'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh 'terraform apply -auto-approve tfplan'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Deployment successful via Terraform!'
+        }
+        failure {
+            echo '❌ Deployment failed.'
+        }
+    }
+}
